@@ -1,0 +1,421 @@
+﻿@model IslamicBank.Models.ViewModels.DepositViewModel 
+
+@{
+    ViewData["Title"] = "Deposit Funds";
+ //   ViewData["AccountId"] = Model?.AccountId ?? Guid.Empty;
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-money-bill-wave"></i> Deposit Funds
+                    </h3>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Islamic Banking Notice -->
+                    <div class="alert alert-info mb-4">
+                        <i class="fas fa-mosque"></i>
+                        <strong>Islamic Banking Note:</strong> 
+                        This deposit is processed as a <strong>Wadiah</strong> (safekeeping) or 
+                        <strong>Mudarabah</strong> (profit-sharing) arrangement. No interest (Riba) 
+                        is paid or received on deposits.
+                    </div>
+                    
+                    <!-- Success/Error Messages -->
+                    @if (TempData["Success"] != null)
+                    {
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="fas fa-check-circle"></i> @TempData["Success"]
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    }
+                    
+                    @if (TempData["Error"] != null)
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-circle"></i> @TempData["Error"]
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    }
+                    
+                    <!-- Deposit Form -->
+                    <form asp-action="Deposit" method="post" id="depositForm">
+                        @Html.AntiForgeryToken()
+                        
+                        <!-- Account ID (Hidden) -->
+                        <input type="hidden" asp-for="AccountId" />
+                        <input type="hidden" asp-for="IdempotencyKey" />
+                        
+                        <!-- Validation Summary -->
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+                        
+                        <!-- Account Information Card -->
+                        <div class="card mb-4 bg-light">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-user-circle"></i> Account Information
+                                </h5>
+                                <hr />
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <strong>Account ID:</strong>
+                                        <span class="badge bg-secondary">@Model.AccountId</span>
+                                    </div>
+                                    <div class="col-md-6" id="accountTypeDisplay">
+                                        <strong>Account Type:</strong>
+                                        <span class="badge bg-info" id="accountTypeText">Loading...</span>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-md-6">
+                                        <strong>Current Balance:</strong>
+                                        <span class="text-success fw-bold" id="currentBalance"> Loading...</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>Last Updated:</strong>
+                                        <span id="lastUpdated">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Deposit Amount Card -->
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-hand-holding-usd"></i> Deposit Details
+                                </h5>
+                                <hr />
+                                
+                                <div class="form-group mb-3">
+                                    <label asp-for="Amount" class="form-label fw-bold">
+                                        Deposit Amount <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">Rp </span>
+                                        <input asp-for="Amount" 
+                                               class="form-control form-control-lg" 
+                                               placeholder="0.00"
+                                               autofocus />
+                                        <span class="input-group-text">.00</span>
+                                    </div>
+                                    <span asp-validation-for="Amount" class="text-danger"></span>
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-info-circle"></i> 
+                                        Enter the amount you wish to deposit. Minimum deposit: Rp 100,000
+                                    </small>
+                                </div>
+                                
+                                <!-- Quick Amount Buttons -->
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Quick Select Amount</label>
+                                    <div class="btn-group w-100" role="group">
+                                        <button type="button" class="btn btn-outline-success quick-amount" data-amount="1000000">Rp 1,000,000</button>
+                                        <button type="button" class="btn btn-outline-success quick-amount" data-amount="500000">Rp 500,000</button>
+                                        <button type="button" class="btn btn-outline-success quick-amount" data-amount="300000">Rp 300,000</button>
+                                        <button type="button" class="btn btn-outline-success quick-amount" data-amount="250000">Rp 250,000</button>
+                                        <button type="button" class="btn btn-outline-success quick-amount" data-amount="100000">Rp 100,000</button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Deposit Method -->
+                                <div class="form-group mb-3">
+                                    <label class="form-label fw-bold">Deposit Method</label>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="DepositMethod" id="cashMethod" value="Cash" checked>
+                                                <label class="form-check-label" for="cashMethod">
+                                                    <i class="fas fa-money-bill"></i> Cash
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="DepositMethod" id="checkMethod" value="Check">
+                                                <label class="form-check-label" for="checkMethod">
+                                                    <i class="fas fa-check-circle"></i> Check
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="DepositMethod" id="transferMethod" value="Bank Transfer">
+                                                <label class="form-check-label" for="transferMethod">
+                                                    <i class="fas fa-university"></i> Bank Transfer
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Reference Number (for check/transfer) -->
+                                <div class="form-group mb-3" id="referenceNumberGroup" style="display:none;">
+                                    <label for="ReferenceNumber" class="form-label fw-bold">Reference Number</label>
+                                    <input type="text" class="form-control" id="ReferenceNumber" name="ReferenceNumber" 
+                                           placeholder="Check number or transfer reference" />
+                                    <small class="form-text text-muted">Required for check or bank transfer deposits</small>
+                                </div>
+                                
+                                <!-- Notes -->
+                                <div class="form-group mb-3">
+                                    <label for="Notes" class="form-label fw-bold">Notes (Optional)</label>
+                                    <textarea class="form-control" id="Notes" name="Notes" 
+                                              rows="2" placeholder="Any additional notes for this deposit"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Confirmation and Terms -->
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="confirmTerms" required>
+                                    <label class="form-check-label" for="confirmTerms">
+                                        I confirm that this deposit is from Shariah-compliant sources and 
+                                        does not involve interest (Riba) or prohibited activities.
+                                    </label>
+                                </div>
+                                
+                                <div class="alert alert-warning small">
+                                    <i class="fas fa-shield-alt"></i>
+                                    <strong>Idempotency Protection:</strong> 
+                                    This transaction has a unique identifier. If you submit again, 
+                                    it will be detected and prevented to avoid duplicate deposits.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="button" class="btn btn-secondary me-md-2" onclick="history.back()">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                            <button type="submit" class="btn btn-success" id="submitBtn" disabled>
+                                <i class="fas fa-check-circle"></i> Process Deposit
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Islamic Banking Information Card -->
+            <div class="card mt-3 bg-light border-info">
+                <div class="card-body">
+                    <h6 class="card-title text-info">
+                        <i class="fas fa-info-circle"></i> About Islamic Deposits
+                    </h6>
+                    <p class="card-text small mb-0">
+                        In Islamic banking, deposits are treated as either:
+                        <ul class="small mb-0">
+                            <li><strong>Wadiah (Safekeeping):</strong> The bank guarantees the full amount and may provide gifts (hibah) at its discretion.</li>
+                            <li><strong>Mudarabah (Profit Sharing):</strong> Deposits are invested in Shariah-compliant activities, and profits are shared periodically.</li>
+                        </ul>
+                        No interest (Riba) is paid on any deposit account.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://kit.fontawesome.com/your-fontawesome-kit.js" crossorigin="anonymous"></script>
+    
+    <script>
+        $(document).ready(function() {
+            // Load account information
+            loadAccountInfo();
+            
+            // Enable/disable submit button based on terms confirmation
+            $('#confirmTerms').change(function() {
+                $('#submitBtn').prop('disabled', !this.checked || !validateAmount());
+            });
+            
+            // Amount validation
+            $('#Amount').on('input', function() {
+                validateAmount();
+                $('#submitBtn').prop('disabled', !$('#confirmTerms').is(':checked') || !validateAmount());
+            });
+            
+            // Quick amount buttons
+            $('.quick-amount').click(function() {
+                var amount = $(this).data('amount');
+                $('#Amount').val(amount);
+                validateAmount();
+                $('#submitBtn').prop('disabled', !$('#confirmTerms').is(':checked') || !validateAmount());
+                // Highlight the amount field
+                $('#Amount').focus();
+            });
+            
+            // Show/hide reference number field based on deposit method
+            $('input[name="DepositMethod"]').change(function() {
+                if ($(this).val() === 'Check' || $(this).val() === 'Bank Transfer') {
+                    $('#referenceNumberGroup').slideDown();
+                    $('#ReferenceNumber').prop('required', true);
+                } else {
+                    $('#referenceNumberGroup').slideUp();
+                    $('#ReferenceNumber').prop('required', false);
+                }
+            });
+            
+            // Form submission with loading state
+            $('#depositForm').submit(function() {
+                if (validateAmount()) {
+                    $('#submitBtn').html('<i class="fas fa-spinner fa-spin"></i> Processing...');
+                    $('#submitBtn').prop('disabled', true);
+                    return true;
+                }
+                return false;
+            });
+        });
+        
+        function loadAccountInfo() {
+            var accountId = '@Model.AccountId';
+            
+            // Fetch account details via AJAX
+            $.ajax({
+                url: '/Account/Show/' + accountId,
+                type: 'GET',
+                success: function(data) {
+                    if (data) {
+                        $('#currentBalance').text('Rp ' + parseFloat(data.balance).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                        }));
+                        $('#accountTypeText').text(data.accountType === 0 ? 'Wadiah Current' : 'Mudarabah Savings');
+                        
+                        // Style based on account type
+                        if (data.accountType === 1) {
+                            $('#accountTypeText').addClass('bg-warning text-dark');
+                            $('#accountTypeText').append(' <i class="fas fa-chart-line"></i>');
+                        } else {
+                            $('#accountTypeText').addClass('bg-secondary');
+                            $('#accountTypeText').append(' <i class="fas fa-shield-alt"></i>');
+                        }
+                        
+                        $('#lastUpdated').text(new Date().toLocaleString());
+                    }
+                },
+                error: function() {
+                    $('#currentBalance').text('Unable to load');
+                    $('#accountTypeText').text('Unknown');
+                }
+            });
+        }
+        
+        function validateAmount() {
+            var amount = parseFloat($('#Amount').val());
+            var errorSpan = $('#Amount').siblings('.text-danger');
+            
+            if (isNaN(amount) || amount <= 0) {
+                errorSpan.text('Please enter a valid amount greater than 0');
+                return false;
+            }
+            
+            if (amount < 10) {
+                errorSpan.text('Minimum deposit amount is Rp 10.00');
+                return false;
+            }
+            
+            if (amount > 1000000) {
+                errorSpan.text('Maximum deposit amount per transaction is Rp 1,000,000. Please contact customer service for larger deposits.');
+                return false;
+            }
+            
+            errorSpan.text('');
+            return true;
+        }
+        
+        // Prevent double submission
+        let isSubmitting = false;
+        $('#depositForm').on('submit', function(e) {
+            if (isSubmitting) {
+                e.preventDefault();
+                return false;
+            }
+            isSubmitting = true;
+            return true;
+        });
+    </script>
+    
+    <!-- Alternative simple script without jQuery -->
+    <noscript>
+        <div class="alert alert-danger">
+            JavaScript is required for the best experience. Please enable JavaScript.
+        </div>
+    </noscript>
+    
+    <!-- Validation scripts -->
+    <partial name="_ValidationScriptsPartial" />
+}
+
+<style>
+    /* Custom styles */
+    .card {
+        border-radius: 10px;
+        border: none;
+    }
+    
+    .card-header {
+        border-radius: 10px 10px 0 0 !important;
+    }
+    
+    .input-group-text {
+        background-color: #f8f9fa;
+    }
+    
+    .btn-group .btn-outline-success:hover {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .quick-amount {
+        transition: all 0.3s ease;
+    }
+    
+    .quick-amount:hover {
+        transform: translateY(-2px);
+    }
+    
+    .form-control:focus {
+        border-color: #28a745;
+        box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+    }
+    
+    .badge {
+        font-size: 0.9em;
+        padding: 5px 10px;
+    }
+    
+    /* Loading animation */
+    @@keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+    
+    .loading {
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+    
+    /* Responsive adjustments */
+    @@media (max-width: 768px) {
+        .btn-group {
+            flex-wrap: wrap;
+        }
+        
+        .btn-group .btn {
+            margin-bottom: 5px;
+            flex: 1 0 auto;
+        }
+        
+        .container {
+            padding: 10px;
+        }
+    }
+</style>

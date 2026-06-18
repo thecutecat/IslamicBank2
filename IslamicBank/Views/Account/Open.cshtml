@@ -1,0 +1,60 @@
+﻿@* @page
+@using IslamicBank.Models.ViewModels 
+ *@
+@model IslamicBank.Models.ViewModels.AccountOpeningViewModel
+@{
+    // Ensure ViewData is initialized
+   // ViewData["Title"] = "Open Islamic Account";
+
+    // if (Model == null)
+    // {
+    //     Model = new AccountOpeningViewModel();
+    // }
+}
+
+
+<h2>Open Islamic Account</h2>
+
+<form asp-action="Open" method="post">
+    @Html.AntiForgeryToken()
+    <div class="form-group">
+        <label asp-for="CustomerId"></label>
+        <input asp-for="CustomerId" class="form-control" />
+        <span asp-validation-for="CustomerId" class="text-danger"></span>
+    </div>
+    
+    <div class="form-group">
+        <label asp-for="AccountType"></label>
+         <select asp-for="AccountType" asp-items="ViewBag.AccountTypes" class="form-control">
+            <option value="">-- Select Account Type --</option>
+         </select> 
+         <span asp-validation-for="AccountType" class="text-danger"></span> 
+    </div>
+    
+    <div class="form-group">
+        <label asp-for="InitialDeposit"></label>
+        <input asp-for="InitialDeposit" class="form-control" />
+        <span asp-validation-for="InitialDeposit" class="text-danger"></span>
+    </div>
+    
+    <div id="profitRatios" style="display:none">
+        <div class="form-group">
+            <label asp-for="CustomerProfitRatio">Customer Profit Share (%)</label>
+            <input asp-for="CustomerProfitRatio" class="form-control" />
+        </div>
+        <div class="form-group">
+            <label asp-for="BankProfitRatio">Bank Profit Share (%)</label>
+            <input asp-for="BankProfitRatio" class="form-control" />
+        </div>
+        <small class="text-muted">Islamic rule: Customer share + Bank share must equal 100%</small>
+    </div>
+    
+    <button type="submit" class="btn btn-primary">Open Account</button>
+</form>
+
+<script>
+    document.querySelector('#AccountType').addEventListener('change', function() {
+        const isMudarabah = this.value === '1'; // MudarabahSavings = 1
+        document.getElementById('profitRatios').style.display = isMudarabah ? 'block' : 'none';
+    });
+</script>

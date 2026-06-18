@@ -1,0 +1,1008 @@
+﻿@model IslamicBank.Models.ViewModels.TransferViewModel
+
+@{
+    ViewData["Title"] = "Fund Transfer";
+    ViewData["FromAccountId"] = Model?.FromAccountId ?? Guid.Empty;
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-exchange-alt"></i> Fund Transfer
+                    </h3>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Islamic Banking Notice -->
+                    <div class="alert alert-info mb-4">
+                        <i class="fas fa-mosque"></i>
+                        <strong>Islamic Banking Note:</strong> 
+                        This transfer is processed as a spot transaction with immediate settlement. 
+                        No interest (Riba) is charged on any transfer, regardless of delay. 
+                        Late settlement does not incur additional charges.
+                    </div>
+                    
+                    <!-- Success/Error Messages -->
+                    @if (TempData["Success"] != null)
+                    {
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="fas fa-check-circle"></i> @TempData["Success"]
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    }
+                    
+                    @if (TempData["Error"] != null)
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-circle"></i> @TempData["Error"]
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    }
+                    
+                    <!-- Transfer Form -->
+                    <form asp-action="Create" method="post" id="transferForm">
+                        @Html.AntiForgeryToken()
+                        
+                        <!-- Hidden Fields -->
+                        <input type="hidden" asp-for="IdempotencyKey" />
+                        
+                        <!-- Validation Summary -->
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+                        
+                        <!-- Source Account Card -->
+                        <div class="card mb-4 bg-light">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-arrow-right-from-bracket"></i> Source Account
+                                </h5>
+                                <hr />
+                                
+                                <div class="form-group mb-3">
+                                    <label asp-for="FromAccountId" class="form-label fw-bold">
+                                        From Account <span class="text-danger">*</span>
+                                    </label>
+                                    <select asp-for="FromAccountId" class="form-control form-control-lg" id="fromAccountSelect">
+                                        <option value="">-- Select Account --</option>
+                                        @if (ViewBag.UserAccounts != null)
+                                        {
+                                            foreach (var account in ViewBag.UserAccounts)
+                                            {
+                                                <option value="@account.AccountId" data-type="@account.AccountType" data-balance="@account.Balance">
+                                                    @account.AccountId - @account.AccountType - @account.AccountNumber (Balance: @account.Balance.ToString("C"))
+                                                </option>
+                                            }
+                                        }
+                                    </select>
+                                    <span asp-validation-for="FromAccountId" class="text-danger"></span>
+                                </div>
+                                
+                                <!-- Source Account Details (dynamic) -->
+                                <div id="sourceAccountDetails" style="display:none;" class="mt-2">
+                                    <div class="alert alert-secondary">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <strong>Account Type:</strong> <span id="sourceAccountType"></span>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <strong>Current Balance:</strong> 
+                                                <span id="sourceBalance" class="text-success fw-bold"></span>
+                                            </div>
+                                        </div>
+                                        <div class="row mt-2">
+                                            <div class="col-md-12">
+                                                <strong>Available for Transfer:</strong>
+                                                <span id="availableForTransfer" class="text-primary fw-bold"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Destination Account Card -->
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-arrow-right-to-bracket"></i> Destination Account
+                                </h5>
+                                <hr />
+                                
+                                <div class="form-group mb-3">
+                                    <label class="form-label fw-bold">Transfer Type</label>
+                                    <div class="btn-group w-100" role="group">
+                                        <input type="radio" class="btn-check" name="TransferType" id="internalTransfer" value="internal" autocomplete="off" checked>
+                                        <label class="btn btn-outline-primary" for="internalTransfer">
+                                            <i class="fas fa-building"></i> Internal Transfer (Same Bank)
+                                        </label>
+                                        
+                                        <input type="radio" class="btn-check" name="TransferType" id="externalTransfer" value="external" autocomplete="off">
+                                        <label class="btn btn-outline-primary" for="externalTransfer">
+                                            <i class="fas fa-university"></i> External Transfer (Other Bank)
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <!-- Internal Transfer Fields -->
+                                <div id="internalTransferFields">
+                                    <div class="form-group mb-3">
+                                        <label asp-for="ToAccountId" class="form-label fw-bold">
+                                            To Account (Internal) <span class="text-danger">*</span>
+                                        </label>
+                                        <select asp-for="ToAccountId" class="form-control" id="toAccountSelect">
+                                            <option value="">-- Select Destination Account --</option>
+                                            @if (ViewBag.UserAccounts != null)
+                                            {
+                                                foreach (var account in ViewBag.UserAccounts)
+                                                {
+                                                    <option value="@account.AccountId" data-type="@account.AccountType" data-balance="@account.Balance">
+                                                        @account.AccountId - @account.AccountType - @account.AccountNumber (Balance: @account.Balance.ToString("C"))
+                                                    </option>
+                                                }
+                                            }
+                                        </select>
+                                        <span asp-validation-for="ToAccountId" class="text-danger"></span>
+                                    </div>
+                                </div>
+                                
+                                <!-- External Transfer Fields -->
+                                <div id="externalTransferFields" style="display:none;">
+                                    <div class="form-group mb-3">
+                                        <label for="ExternalBankName" class="form-label fw-bold">Bank Name <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="ExternalBankName" name="ExternalBankName" />
+                                        <small class="form-text text-muted">Enter the name of the recipient's bank</small>
+                                    </div>
+                                    
+                                    <div class="form-group mb-3">
+                                        <label for="ExternalAccountNumber" class="form-label fw-bold">Account Number <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="ExternalAccountNumber" name="ExternalAccountNumber" />
+                                        <small class="form-text text-muted">Enter the recipient's account number</small>
+                                    </div>
+                                    
+                                    <div class="form-group mb-3">
+                                        <label for="ExternalAccountName" class="form-label fw-bold">Account Holder Name <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="ExternalAccountName" name="ExternalAccountName" />
+                                        <small class="form-text text-muted">Must match the account holder's registered name</small>
+                                    </div>
+                                    
+                                    <div class="form-group mb-3">
+                                        <label for="IfscCode" class="form-label fw-bold">Bank Code / IFSC <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="IfscCode" name="IfscCode" placeholder="e.g., IBAN, SWIFT, or routing number" />
+                                    </div>
+                                    
+                                    <div class="alert alert-warning small">
+                                        <i class="fas fa-clock"></i>
+                                        <strong>External Transfer Processing:</strong> 
+                                        External transfers may take 1-3 business days to process. 
+                                        Funds will be reserved immediately upon confirmation.
+                                    </div>
+                                </div>
+                                
+                                <!-- Recipient Details -->
+                                <div class="form-group mb-3">
+                                    <label for="RecipientName" class="form-label fw-bold">Recipient Name</label>
+                                    <input type="text" class="form-control" id="RecipientName" name="RecipientName" 
+                                           placeholder="Full name of the recipient" />
+                                    <small class="form-text text-muted">Optional for internal transfers, required for external</small>
+                                </div>
+                                
+                                <div class="form-group mb-3">
+                                    <label for="RecipientEmail" class="form-label fw-bold">Recipient Email (Optional)</label>
+                                    <input type="email" class="form-control" id="RecipientEmail" name="RecipientEmail" 
+                                           placeholder="recipient@example.com" />
+                                    <small class="form-text text-muted">Send notification to recipient</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Transfer Amount Card -->
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-money-bill-transfer"></i> Transfer Details
+                                </h5>
+                                <hr />
+                                
+                                <div class="form-group mb-3">
+                                    <label asp-for="Amount" class="form-label fw-bold">
+                                        Transfer Amount <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">Rp </span>
+                                        <input asp-for="Amount" 
+                                               class="form-control form-control-lg" 
+                                               placeholder="0.00"
+                                               id="transferAmount" />
+                                        <span class="input-group-text">.00</span>
+                                    </div>
+                                    <span asp-validation-for="Amount" class="text-danger"></span>
+                                    <div id="amountWarning" class="text-warning small mt-1" style="display:none;">
+                                        <i class="fas fa-exclamation-triangle"></i> 
+                                        This transfer exceeds 80% of your available balance. Please ensure sufficient funds.
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-info-circle"></i> 
+                                        Minimum transfer: $10.00 | Maximum per transfer: Rp 100,000
+                                    </small>
+                                </div>
+                                
+                                <!-- Quick Amount Buttons -->
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Quick Select Amount</label>
+                                    <div class="btn-group w-100 flex-wrap" role="group">
+                                        <button type="button" class="btn btn-outline-primary quick-amount" data-amount="100000">Rp 100000</button>
+                                        <button type="button" class="btn btn-outline-primary quick-amount" data-amount="500000">Rp 500000</button>
+                                        <button type="button" class="btn btn-outline-primary quick-amount" data-amount="1000000">Rp 1,000,000</button>
+                                        <button type="button" class="btn btn-outline-primary quick-amount" data-amount="5000000">Rp 5,000,000</button>
+                                        <button type="button" class="btn btn-outline-primary quick-amount" data-amount="10000000">Rp 10,000,000</button>
+                                        <button type="button" class="btn btn-outline-danger quick-amount" id="maxTransferBtn">Max</button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Transfer Reference -->
+                                <div class="form-group mb-3">
+                                    <label for="Reference" class="form-label fw-bold">Reference / Description</label>
+                                    <input type="text" class="form-control" id="Reference" name="Reference" 
+                                           placeholder="e.g., Rent payment, Invoice #123, etc." maxlength="100" />
+                                    <small class="form-text text-muted">This will appear on both accounts' statements</small>
+                                </div>
+                                
+                                <!-- Scheduled Transfer (Future Feature) -->
+                                <div class="form-group mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="scheduleTransfer">
+                                        <label class="form-check-label" for="scheduleTransfer">
+                                            Schedule for future date
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div id="scheduleFields" style="display:none;">
+                                    <div class="form-group mb-3">
+                                        <label for="ScheduledDate" class="form-label fw-bold">Scheduled Date</label>
+                                        <input type="date" class="form-control" id="ScheduledDate" name="ScheduledDate" 
+                                               min="@DateTime.Now.AddDays(1).ToString("yyyy-MM-dd")" />
+                                        <small class="form-text text-muted">Transfer will be processed on this date</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Fee Information -->
+                        <div class="card mb-4 border-info">
+                            <div class="card-body bg-light">
+                                <h6 class="card-title text-info">
+                                    <i class="fas fa-calculator"></i> Transfer Fees
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <strong>Internal Transfer Fee:</strong>
+                                        <span class="text-success">Free (No fee)</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>External Transfer Fee:</strong>
+                                        <span id="externalFee">Rp 5.00 (Processing fee)</span>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-md-12">
+                                        <strong>Islamic Compliance:</strong>
+                                        <span class="text-info">No interest (Riba) or hidden charges. All fees are transparent and fixed.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Confirmation and Terms -->
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="confirmTerms" required>
+                                    <label class="form-check-label" for="confirmTerms">
+                                        I confirm that this transfer is for lawful purposes and complies with 
+                                        Islamic banking principles. I understand that no interest will be charged 
+                                        or paid on this transaction.
+                                    </label>
+                                </div>
+                                
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="confirmBeneficiary" required>
+                                    <label class="form-check-label" for="confirmBeneficiary">
+                                        I confirm that the beneficiary information provided is accurate and complete.
+                                    </label>
+                                </div>
+                                
+                                <div class="alert alert-warning small">
+                                    <i class="fas fa-shield-alt"></i>
+                                    <strong>Idempotency Protection:</strong> 
+                                    Each transfer has a unique identifier. Duplicate submissions will be automatically detected and prevented.
+                                </div>
+                                
+                                <div class="alert alert-danger small" id="sameAccountWarning" style="display:none;">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <strong>Invalid Transfer:</strong> You cannot transfer funds to the same account.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="button" class="btn btn-secondary me-md-2" onclick="history.back()">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
+                                <i class="fas fa-paper-plane"></i> Review Transfer
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Islamic Banking Information Card -->
+            <div class="card mt-3 bg-light border-primary">
+                <div class="card-body">
+                    <h6 class="card-title text-primary">
+                        <i class="fas fa-info-circle"></i> About Islamic Fund Transfers
+                    </h6>
+                    <p class="card-text small mb-0">
+                        Islamic banking principles for fund transfers:
+                        <ul class="small mb-0">
+                            <li><strong>No Riba:</strong> No interest is charged or paid on any transfer</li>
+                            <li><strong>Spot Settlement:</strong> Transfers are settled immediately where possible</li>
+                            <li><strong>No Late Fees:</strong> Delayed settlements do not incur interest or penalties</li>
+                            <li><strong>Transparent Fees:</strong> All fees are fixed, disclosed, and not tied to time or amount percentage</li>
+                            <li><strong>Shariah Compliance:</strong> Transfers to prohibited businesses (alcohol, gambling, etc.) are not permitted</li>
+                        </ul>
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Recent Transfers Card -->
+            <div class="card mt-3">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-history"></i> Recent Transfers
+                    </h6>
+                </div>
+                <div class="card-body" id="recentTransfers">
+                    <p class="text-muted text-center">Select an account to view recent transfers</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Review Modal (for confirmation before submission) -->
+<div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="reviewModalLabel">
+                    <i class="fas fa-check-circle"></i> Review Transfer Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <strong>Islamic Banking Compliance:</strong> Please verify all details before confirming.
+                    This transfer complies with Shariah principles (no Riba, asset-backed where applicable).
+                </div>
+                <table class="table table-bordered">
+                    <tr>
+                        <td width="40%"><strong>From Account:</strong></td>
+                        <td id="reviewFromAccount">-</td>
+                    </tr>
+                    <tr>
+                        <td><strong>To Account:</strong></td>
+                        <td id="reviewToAccount">-</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Transfer Amount:</strong></td>
+                        <td id="reviewAmount" class="text-primary fw-bold">-</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Transfer Fee:</strong></td>
+                        <td id="reviewFee">-</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Total Debit:</strong></td>
+                        <td id="reviewTotal" class="text-danger fw-bold">-</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Reference:</strong></td>
+                        <td id="reviewReference">-</td>
+                    </tr>
+                </table>
+                <div class="alert alert-warning small">
+                    <i class="fas fa-clock"></i> Once confirmed, this transfer cannot be canceled.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmTransferBtn">
+                    <i class="fas fa-check"></i> Confirm & Complete Transfer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @* <script src="https://kit.fontawesome.com/your-fontawesome-kit.js" crossorigin="anonymous"></script>
+     *@
+    <script>
+        let selectedFromAccount = null;
+        let availableBalance = 0;
+        let accountType = 0;
+         let dailyTransferLimit = 100000000;
+        let dailyTransferred = 0;
+        
+        $(document).ready(function() {
+            //to prevent validation of hidden elements
+            $.validator.setDefaults({ ignore: ':hidden, .ignore-validation' });
+            // Initialize form
+            initializeForm();
+            
+            // Account selection change
+            $('#fromAccountSelect').change(function() {
+                loadSourceAccountDetails();
+                loadRecentTransfers();
+                validateAmount();
+            });
+            
+            $('#toAccountSelect').change(function() {
+                validateSameAccount();
+                validateAmount();
+            });
+            
+            // Transfer type toggle
+            $('input[name="TransferType"]').change(function() {
+                if ($(this).val() === 'internal') {
+                    $('#internalTransferFields').show();
+                    $('#externalTransferFields').hide();
+                    $('#ToAccountId').prop('required', true);
+                    $('#ExternalBankName').prop('required', false);
+                    $('#ExternalAccountNumber').prop('required', false);
+                    $('#ExternalAccountName').prop('required', false);
+                    $('#IfscCode').prop('required', false);
+                    $('#externalFee').text('Rp 0.00 (Free)');
+                } else {
+                    $('#internalTransferFields').hide();
+                    $('#externalTransferFields').show();
+                    $('#ToAccountId').prop('required', false);
+                    $('#ExternalBankName').prop('required', true);
+                    $('#ExternalAccountNumber').prop('required', true);
+                    $('#ExternalAccountName').prop('required', true);
+                    $('#IfscCode').prop('required', true);
+                    $('#externalFee').text('Rp 5.00 (Processing fee)');
+                }
+                validateAmount();
+            });
+            
+            // Schedule transfer toggle
+            $('#scheduleTransfer').change(function() {
+                $('#scheduleFields').toggle(this.checked);
+                if (this.checked) {
+                    $('#ScheduledDate').prop('required', true);
+                } else {
+                    $('#ScheduledDate').prop('required', false);
+                }
+            });
+            
+            // Amount validation
+            $('#transferAmount').on('input', function() {
+                validateAmount();
+                checkLargeTransfer();
+                updateReviewModal();
+            });
+            
+            // Quick amount buttons
+            $('.quick-amount').click(function() {
+                var amount = $(this).data('amount');
+                if ($(this).attr('id') === 'maxTransferBtn') {
+                    // Max transfer - set to available balance minus fee
+                    var fee = getTransferFee();
+                    var maxAmount = Math.max(0, availableBalance - fee);
+                    $('#transferAmount').val(maxAmount.toFixed(2));
+                } else {
+                    $('#transferAmount').val(amount);
+                }
+                validateAmount();
+                checkLargeTransfer();
+                updateReviewModal();
+                $('#transferAmount').focus();
+            });
+            
+            // Terms confirmation
+            $('#confirmTerms, #confirmBeneficiary').change(function() {
+               // $('#submitBtn').prop('disabled', !validateForm());
+                  $('#submitBtn').prop('disabled', !validateManualForm());
+            });
+            
+            // Submit button - show review modal instead of direct submit
+            $('#submitBtn').click(function(e) {
+                e.preventDefault();
+                if (validateForm()) {
+                    updateReviewModal();
+                    $('#reviewModal').modal('show');
+
+                }
+            });
+            
+            // Confirm transfer button
+            $('#confirmTransferBtn').click(function() {
+                $('#transferForm').submit();
+            });
+            
+            // Reference field update
+            $('#Reference').on('input', updateReviewModal);
+            
+            // Prevent self-transfer
+            $('#toAccountSelect').change(validateSameAccount);
+        });
+        
+        function initializeForm() {
+            // Set default idempotency key if empty
+            if (!$('#IdempotencyKey').val()) {
+                $('#IdempotencyKey').val(generateUUID());
+            }
+            
+            // If FromAccountId is provided via ViewData, select it
+            var fromAccountId = '@ViewData["FromAccountId"]';
+            if (fromAccountId && fromAccountId !== '00000000-0000-0000-0000-000000000000') {
+                $('#fromAccountSelect').val(fromAccountId).trigger('change');
+            }
+        }
+        
+        function loadSourceAccountDetails() {
+            var selectedOption = $('#fromAccountSelect option:selected');
+            if (selectedOption.val()) {
+                selectedFromAccount = selectedOption.val();
+                var balance = parseFloat(selectedOption.data('balance'));
+                var type = parseInt(selectedOption.data('type'));
+                accountType = type;
+                
+                // Calculate available for transfer (Mudarabah accounts have 90% availability)
+                availableBalance = (type === 1) ? balance * 0.9 : balance;
+                
+                $('#sourceAccountDetails').show();
+                $('#sourceAccountType').text(type === 0 ? 'Wadiah Current' : 'Mudarabah Savings');
+                $('#sourceBalance').text('Rp ' + formatCurrency(balance));
+                $('#availableForTransfer').text('Rp ' + formatCurrency(availableBalance));
+                
+                // Show Mudarabah warning if applicable
+                if (type === 1) {
+                    $('#availableForTransfer').parent().append(
+                        '<div class="text-warning small mt-1">' +
+                        '<i class="fas fa-info-circle"></i> Mudarabah accounts have 10% reserve requirement for withdrawals/transfers' +
+                        '</div>'
+                    );
+                }
+                
+                // Load daily transferred amount
+                loadDailyTransferred(selectedFromAccount);
+            } else {
+                $('#sourceAccountDetails').hide();
+                selectedFromAccount = null;
+                availableBalance = 0;
+            }
+        }
+        
+        function loadDailyTransferred(accountId) {
+            $.ajax({
+                url: '/Transfer/dailytotal/' + accountId,
+                type: 'GET',
+                success: function(data) {
+                    dailyTransferred = data.total || 0;
+                    var remaining = dailyTransferLimit - dailyTransferred;
+                    $('#dailyLimitInfo').remove();
+                    if (remaining <= 0) {
+                        showError('Daily transfer limit reached. Please try again tomorrow.');
+                        $('#submitBtn').prop('disabled', true);
+                    }
+                }
+            });
+        }
+        
+        function loadRecentTransfers() {
+            var accountId = $('#fromAccountSelect').val();
+            if (accountId) {
+                $('#recentTransfers').html('<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>');
+                $.ajax({
+        url: '/Transfer/RecentTransferTransaction/' + accountId,
+                    type: 'GET',
+                    success: function(data) {
+                        if (data && data.length > 0) {
+                            var html = '<div class="list-group list-group-flush">';
+                            data.forEach(function(transfer) {
+                                html += '<div class="list-group-item">';
+                                html += '<div class="d-flex justify-content-between align-items-center">';
+                                html += '<div>';
+                                html += '<small class="text-muted">' + new Date(transfer.createdAt).toLocaleDateString() + '</small><br/>';
+                                html += '<span>To: ' + (transfer.toAccountName || transfer.externalAccountName || 'Unknown') + '</span>';
+                                html += '</div>';
+                                html += '<div class="text-end">';
+                                html += '<span class="text-danger">-$' + formatCurrency(transfer.amount) + '</span><br/>';
+                                html += '<span class="badge bg-' + (transfer.status === 'Settled' ? 'success' : 'warning') + '">' + transfer.status + '</span>';
+                                html += '</div>';
+                                html += '</div>';
+                                html += '</div>';
+                            });
+                            html += '</div>';
+                            $('#recentTransfers').html(html);
+                        } else {
+                            $('#recentTransfers').html('<p class="text-muted text-center">No recent transfers found</p>');
+                        }
+                    },
+                    error: function() {
+                        $('#recentTransfers').html('<p class="text-muted text-center">Unable to load recent transfers</p>');
+                    }
+                });
+            }
+        }
+        
+        function validateAmount() {
+            var amount = parseFloat($('#transferAmount').val());
+            var errorSpan = $('#transferAmount').siblings('.text-danger');
+            var fee = getTransferFee();
+            
+            if (isNaN(amount) || amount <= 0) {
+                errorSpan.text('Please enter a valid amount greater than 0');
+                return false;
+            }
+            
+            if (amount < 10) {
+                errorSpan.text('Minimum transfer amount is Rp 10.00');
+                return false;
+            }
+            
+            if (amount > dailyTransferLimit - dailyTransferred) {
+                errorSpan.text(`Daily transfer limit exceeded. Remaining limit: Rp ${formatCurrency(dailyTransferLimit - dailyTransferred)}`);
+                return false;
+            }
+            
+             if (amount > dailyTransferLimit) {
+                errorSpan.text('Maximum transfer amount per transaction is Rp '+ formatCurrency(dailyTransferLimit));
+                return false;
+            }
+            
+            if (availableBalance > 0 && (amount + fee) > availableBalance) {
+                errorSpan.text(`Insufficient funds. Amount + fee (Rp ${formatCurrency(fee)}) exceeds available balance of Rp ${formatCurrency(availableBalance)}`);
+                return false;
+            }
+            
+            errorSpan.text('');
+            return true;
+        }
+        
+        function getTransferFee() {
+            var transferType = $('input[name="TransferType"]:checked').val();
+            return transferType === 'external' ? 5.00 : 0.00;
+        }
+        
+        function validateSameAccount() {
+            var fromAccount = $('#fromAccountSelect').val();
+            var toAccount = $('#toAccountSelect').val();
+            
+            if (fromAccount && toAccount && fromAccount === toAccount) {
+                $('#sameAccountWarning').show();
+                $('#submitBtn').prop('disabled', true);
+                return false;
+            } else {
+                $('#sameAccountWarning').hide();
+                return true;
+            }
+        }
+        
+        function validateForm() {
+            var isValid = true;
+            
+            // Check if account selected
+            if (!$('#fromAccountSelect').val()) {
+                isValid = false;
+            }
+            
+            // Check transfer type
+            var transferType = $('input[name="TransferType"]:checked').val();
+            if(transferType == undefined) transferType = "internal";
+
+            if (transferType === 'internal') {
+                if (!$('#toAccountSelect').val()) {
+                    isValid = false;
+                }
+                if (!validateSameAccount()) {
+                    isValid = false;
+                }
+            } else {
+                if (!$('#ExternalBankName').val() || !$('#ExternalAccountNumber').val() || !$('#ExternalAccountName').val()) {
+                    isValid = false;
+                }
+            }
+            
+            // Check amount
+            if (!validateAmount()) {
+                isValid = false;
+            }
+            
+            // Check terms
+            if (!$('#confirmTerms').is(':checked') || !$('#confirmBeneficiary').is(':checked')) {
+                isValid = false;
+            }
+            
+            return isValid;
+        }
+        
+        function validateManualForm() {
+            var isValid = true;
+            var errorMessage = '';
+
+            // Check from account selected
+            if (!$('#fromAccountSelect').val()) {
+                isValid = false;
+                errorMessage = 'Please select a source account';
+            }
+
+            // Check transfer type and destination
+            var transferType = $('input[name="TransferType"]:checked').val();
+            if (transferType === 'internal') {
+                if (!$('#toAccountSelect').val()) {
+                    isValid = false;
+                    errorMessage = 'Please select a destination account';
+                }
+                if (!validateSameAccount()) {
+                    isValid = false;
+                    errorMessage = 'Cannot transfer to the same account';
+                }
+            } else {
+                if (!$('#ExternalBankName').val()) {
+                    isValid = false;
+                    errorMessage = 'Please enter the bank name';
+                }
+                if (!$('#ExternalAccountNumber').val()) {
+                    isValid = false;
+                    errorMessage = 'Please enter the account number';
+                }
+                if (!$('#ExternalAccountName').val()) {
+                    isValid = false;
+                    errorMessage = 'Please enter the account holder name';
+                }
+            }
+
+            // Check amount
+            if (!validateAmount()) {
+                isValid = false;
+                errorMessage = 'Please enter a valid transfer amount';
+            }
+
+            // Check terms
+            if (!$('#confirmTerms').is(':checked')) {
+                isValid = false;
+                errorMessage = 'Please confirm Shariah compliance';
+            }
+
+            if (!$('#confirmBeneficiary').is(':checked')) {
+                isValid = false;
+                errorMessage = 'Please confirm beneficiary information';
+            }
+
+            if (!isValid && errorMessage) {
+                // Show error without using jQuery Validation
+                var errorDiv = $('#formError');
+                if (errorDiv.length === 0) {
+                    $('#transferForm').prepend('<div id="formError" class="alert alert-danger">' + errorMessage + '</div>');
+                } else {
+                    errorDiv.text(errorMessage).show();
+                }
+                setTimeout(function() {
+                    $('#formError').fadeOut();
+                }, 3000);
+            }
+
+            return isValid;
+        }
+
+        function checkLargeTransfer() {
+            var amount = parseFloat($('#transferAmount').val());
+            var warningSpan = $('#amountWarning');
+            
+            if (!isNaN(amount) && availableBalance > 0 && amount > (availableBalance * 0.8)) {
+                warningSpan.show();
+            } else {
+                warningSpan.hide();
+            }
+        }
+        
+        function updateReviewModal() {
+            var fromAccountText = $('#fromAccountSelect option:selected').text() || 'Not selected';
+            var toAccountText = $('#toAccountSelect option:selected').text() || 'Not specified';
+            var amount = parseFloat($('#transferAmount').val()) || 0;
+            var fee = getTransferFee();
+            var total = amount + fee;
+            var reference = $('#Reference').val() || 'No reference';
+            
+            // For external transfers, show external details
+            var transferType = $('input[name="TransferType"]:checked').val();
+            if (transferType === 'external') {
+                toAccountText = `External: ${$('#ExternalBankName').val() || '?'} - ${$('#ExternalAccountNumber').val() || '?'}`;
+            }
+            
+            $('#reviewFromAccount').text(fromAccountText);
+            $('#reviewToAccount').text(toAccountText);
+            $('#reviewAmount').text('Rp ' + formatCurrency(amount));
+            $('#reviewFee').text('Rp ' + formatCurrency(fee));
+            $('#reviewTotal').text('Rp ' + formatCurrency(total));
+            $('#reviewReference').text(reference);
+        }
+        
+        function formatCurrency(value) {
+            return parseFloat(value).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+        
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+        
+        function showError(message) {
+            var errorDiv = $('<div class="alert alert-danger alert-dismissible fade show" role="alert">')
+                .html('<i class="fas fa-exclamation-circle"></i> ' + message + 
+                      '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>');
+            $('#transferForm').prepend(errorDiv);
+            setTimeout(function() {
+                errorDiv.alert('close');
+            }, 5000);
+        }
+        
+        // Prevent double submission
+         /* let isSubmitting = false;
+       $('#transferForm').on('submit', function(e) {
+            if (isSubmitting) {
+                e.preventDefault();
+                return false;
+            }
+            $('#confirmTransferBtn').prop('disabled', true);
+            $('#confirmTransferBtn').html('<i class="fas fa-spinner fa-spin"></i> Processing...');
+            isSubmitting = true;
+            return true;
+        }); */
+        $('#transferForm').on('submit', function(e) {
+                e.preventDefault();
+
+                // Manual validation
+                if (!validateManualForm()) {
+                    return false;
+                }
+
+                // Show loading state
+                $('#submitBtn').prop('disabled', true);
+                $('#submitBtn').html('<i class="fas fa-spinner fa-spin"></i> Processing...');
+
+                // Submit the form manually
+                this.submit();
+            });
+
+            
+        // Add this at the end of the file
+        // $.validator.setDefaults({
+        // ignore: []
+        // });
+
+        // Or to completely disable validation for this form
+        $('#transferForm').removeData('validator');
+        $('#transferForm').removeData('unobtrusiveValidation');
+        //$.validator.unobtrusive.parse('#transferForm');
+    </script>
+    
+    <partial name="_ValidationScriptsPartial" />
+}
+
+<style>
+    /* Custom styles */
+    .card {
+        border-radius: 10px;
+        border: none;
+        margin-bottom: 20px;
+    }
+    
+    .card-header {
+        border-radius: 10px 10px 0 0 !important;
+    }
+    
+    .input-group-text {
+        background-color: #f8f9fa;
+    }
+    
+    .btn-group .btn-outline-primary:hover {
+        background-color: #0d6efd;
+        color: white;
+    }
+    
+    .btn-outline-danger:hover {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .quick-amount {
+        transition: all 0.3s ease;
+        margin: 2px;
+    }
+    
+    .quick-amount:hover {
+        transform: translateY(-2px);
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+    
+    .badge {
+        font-size: 0.9em;
+        padding: 5px 10px;
+    }
+    
+    /* Loading animation */
+    @@keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+    
+    .loading {
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+    
+    /* Responsive adjustments */
+    @@media (max-width: 768px) {
+        .btn-group {
+            flex-wrap: wrap;
+        }
+        
+        .btn-group .btn {
+            margin-bottom: 5px;
+            flex: 1 0 auto;
+        }
+        
+        .container {
+            padding: 10px;
+        }
+        
+        .row [class*="col-"] {
+            margin-bottom: 10px;
+        }
+    }
+    
+    /* Modal animation */
+    .modal-content {
+        border-radius: 10px;
+    }
+    
+    /* Alert animations */
+    .alert {
+        animation: slideDown 0.5s ease-out;
+    }
+    
+    @@keyframes slideDown {
+        from {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    
+    /* List group hover effect */
+    .list-group-item:hover {
+        background-color: #f8f9fa;
+        transition: background-color 0.3s ease;
+    }
+</style>

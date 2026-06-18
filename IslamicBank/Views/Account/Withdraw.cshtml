@@ -1,0 +1,547 @@
+﻿@model IslamicBank.Models.ViewModels.WithdrawalViewModel
+
+@{
+    ViewData["Title"] = "Withdraw Funds";
+    ViewData["AccountId"] = Model?.AccountId ?? Guid.Empty;
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">
+                    <h3 class="mb-0">
+                        <i class="fas fa-hand-holding-usd"></i> Withdraw Funds
+                    </h3>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Islamic Banking Notice -->
+                    <div class="alert alert-warning mb-4">
+                        <i class="fas fa-mosque"></i>
+                        <strong>Islamic Banking Note:</strong> 
+                        Withdrawals are processed immediately. No interest (Riba) is charged on any transaction.
+                        Late withdrawal penalties apply only to Mudarabah investment accounts and are 
+                        directed to charity, not bank revenue.
+                    </div>
+                    
+                    <!-- Success/Error Messages -->
+                    @if (TempData["Success"] != null)
+                    {
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="fas fa-check-circle"></i> @TempData["Success"]
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    }
+                    
+                    @if (TempData["Error"] != null)
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-circle"></i> @TempData["Error"]
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    }
+                    
+                    <!-- Withdrawal Form -->
+                    <form asp-action="Withdraw" method="post" id="withdrawForm">
+                        @Html.AntiForgeryToken()
+                        
+                        <!-- Account ID (Hidden) -->
+                        <input type="hidden" asp-for="AccountId" />
+                        <input type="hidden" asp-for="IdempotencyKey" />
+                        
+                        <!-- Validation Summary -->
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+                        
+                        <!-- Account Information Card -->
+                        <div class="card mb-4 bg-light">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-user-circle"></i> Account Information
+                                </h5>
+                                <hr />
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <strong>Account ID:</strong>
+                                        <span class="badge bg-secondary">@Model.AccountId</span>
+                                    </div>
+                                    <div class="col-md-6" id="accountTypeDisplay">
+                                        <strong>Account Type:</strong>
+                                        <span class="badge bg-info" id="accountTypeText">Loading...</span>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-md-6">
+                                        <strong>Current Balance:</strong>
+                                        <span class="text-success fw-bold" id="currentBalance">Loading...</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>Available for Withdrawal:</strong>
+                                        <span class="text-primary fw-bold" id="availableBalance">Loading...</span>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-md-12">
+                                        <strong>Withdrawal Limit (Daily):</strong>
+                                        <span id="dailyLimit">Rp 10,000,000.00</span>
+                                        <span class="text-muted" id="withdrawnToday"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Withdrawal Amount Card -->
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-money-bill-wave"></i> Withdrawal Details
+                                </h5>
+                                <hr />
+                                
+                                <div class="form-group mb-3">
+                                    <label asp-for="Amount" class="form-label fw-bold">
+                                        Withdrawal Amount <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">Rp </span>
+                                        <input asp-for="Amount" 
+                                               class="form-control form-control-lg" 
+                                               placeholder="0.00"
+                                               autofocus />
+                                        <span class="input-group-text">.00</span>
+                                    </div>
+                                    <span asp-validation-for="Amount" class="text-danger"></span>
+                                    <div id="amountWarning" class="text-warning small mt-1" style="display:none;">
+                                        <i class="fas fa-exclamation-triangle"></i> 
+                                        This withdrawal exceeds 90% of your balance. Please ensure sufficient funds.
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-info-circle"></i> 
+                                        Enter the amount you wish to withdraw. Minimum withdrawal: Rp 10,000.00
+                                    </small>
+                                </div>
+                                
+                                <!-- Quick Amount Buttons -->
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Quick Select Amount</label>
+                                    <div class="btn-group w-100 flex-wrap" role="group">
+                                        <button type="button" class="btn btn-outline-warning quick-amount" data-amount="1000000">Rp 1,000,000</button>
+                                        <button type="button" class="btn btn-outline-warning quick-amount" data-amount="500000">Rp 500,000</button>
+                                        <button type="button" class="btn btn-outline-warning quick-amount" data-amount="300000">Rp 300,000</button>
+                                        <button type="button" class="btn btn-outline-warning quick-amount" data-amount="250000">Rp 250,000</button>
+                                        <button type="button" class="btn btn-outline-warning quick-amount" data-amount="100000">Rp 100,000</button>
+                                        <button type="button" class="btn btn-outline-danger quick-amount" data-amount="10000000" id="maxWithdrawBtn">Max</button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Withdrawal Method -->
+                                <div class="form-group mb-3">
+                                    <label class="form-label fw-bold">Withdrawal Method</label>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="WithdrawalMethod" id="cashMethod" value="Cash" checked>
+                                                <label class="form-check-label" for="cashMethod">
+                                                    <i class="fas fa-money-bill"></i> Cash (Branch)
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="WithdrawalMethod" id="atmMethod" value="ATM">
+                                                <label class="form-check-label" for="atmMethod">
+                                                    <i class="fas fa-credit-card"></i> ATM Card
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="WithdrawalMethod" id="transferMethod" value="Bank Transfer">
+                                                <label class="form-check-label" for="transferMethod">
+                                                    <i class="fas fa-university"></i> Bank Transfer
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Destination Account (for transfer) -->
+                                <div class="form-group mb-3" id="destinationAccountGroup" style="display:none;">
+                                    <label for="DestinationAccount" class="form-label fw-bold">Destination Account Number</label>
+                                    <input type="text" class="form-control" id="DestinationAccount" name="DestinationAccount" 
+                                           placeholder="Enter account number for transfer" />
+                                    <small class="form-text text-muted">For bank transfer withdrawals only</small>
+                                </div>
+                                
+                                <!-- Notes -->
+                                <div class="form-group mb-3">
+                                    <label for="Notes" class="form-label fw-bold">Notes (Optional)</label>
+                                    <textarea class="form-control" id="Notes" name="Notes" 
+                                              rows="2" placeholder="Any additional notes for this withdrawal"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Mudarabah Penalty Notice (shown for Mudarabah accounts) -->
+                        <div class="card mb-4 border-danger" id="penaltyNotice" style="display:none;">
+                            <div class="card-body bg-light">
+                                <h6 class="text-danger">
+                                    <i class="fas fa-exclamation-triangle"></i> Mudarabah Withdrawal Notice
+                                </h6>
+                                <p class="small mb-0">
+                                    This is a Mudarabah (profit-sharing) investment account. Early withdrawal may:
+                                    <ul class="small">
+                                        <li>Reduce your profit share for the current period</li>
+                                        <li>Incur a penalty that will be directed to charity (as per Islamic principles)</li>
+                                        <li>Require 30 days notice for large withdrawals</li>
+                                    </ul>
+                                    <strong>Islamic Compliance:</strong> Any penalties are donated to charity and do not benefit the bank.
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- Confirmation and Terms -->
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="confirmTerms" required>
+                                    <label class="form-check-label" for="confirmTerms">
+                                        I confirm that this withdrawal is for lawful purposes and complies with 
+                                        Islamic banking principles.
+                                    </label>
+                                </div>
+                                
+                                <div class="alert alert-warning small">
+                                    <i class="fas fa-shield-alt"></i>
+                                    <strong>Idempotency Protection:</strong> 
+                                    Each withdrawal has a unique identifier. Duplicate submissions will be automatically rejected.
+                                </div>
+                                
+                                <div class="alert alert-info small">
+                                    <i class="fas fa-clock"></i>
+                                    <strong>Processing Time:</strong>
+                                    - Cash withdrawals: Immediate<br />
+                                    - ATM withdrawals: Within 2 hours<br />
+                                    - Bank transfers: 1-2 business days
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="button" class="btn btn-secondary me-md-2" onclick="history.back()">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                            <button type="submit" class="btn btn-warning" id="submitBtn" disabled>
+                                <i class="fas fa-hand-holding-usd"></i> Process Withdrawal
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Islamic Banking Information Card -->
+            <div class="card mt-3 bg-light border-warning">
+                <div class="card-body">
+                    <h6 class="card-title text-warning">
+                        <i class="fas fa-info-circle"></i> About Islamic Withdrawals
+                    </h6>
+                    <p class="card-text small mb-0">
+                        In Islamic banking, withdrawals are governed by these principles:
+                        <ul class="small mb-0">
+                            <li><strong>No Interest (Riba):</strong> No interest is charged on any withdrawal or cash advance.</li>
+                            <li><strong>Qard (Benevolent Loan):</strong> Overdrafts, if permitted, are interest-free loans.</li>
+                            <li><strong>Mudarabah Restrictions:</strong> Investment accounts may have withdrawal notice periods.</li>
+                            <li><strong>Charity Penalties:</strong> Any late or early withdrawal penalties go to charity.</li>
+                        </ul>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://kit.fontawesome.com/your-fontawesome-kit.js" crossorigin="anonymous"></script>
+    
+    <script>
+        let currentBalance = 0;
+        let availableBalance = 0;
+        let accountType = 0;
+        let dailyWithdrawn = 0;
+        const dailyLimit = 10000000; // $10,000 daily limit
+        
+        $(document).ready(function() {
+            // Load account information
+            loadAccountInfo();
+            
+            // Enable/disable submit button based on terms confirmation
+            $('#confirmTerms').change(function() {
+                $('#submitBtn').prop('disabled', !this.checked || !validateAmount());
+            });
+            
+            // Amount validation
+            $('#Amount').on('input', function() {
+                validateAmount();
+                checkLargeWithdrawal();
+                $('#submitBtn').prop('disabled', !$('#confirmTerms').is(':checked') || !validateAmount());
+            });
+            
+            // Quick amount buttons
+            $('.quick-amount').click(function() {
+                var amount = $(this).data('amount');
+                if ($(this).attr('id') === 'maxWithdrawBtn') {
+                    // Max withdraw button - set to available balance
+                    $('#Amount').val(availableBalance.toFixed(2));
+                } else {
+                    $('#Amount').val(amount);
+                }
+                validateAmount();
+                checkLargeWithdrawal();
+                $('#submitBtn').prop('disabled', !$('#confirmTerms').is(':checked') || !validateAmount());
+                $('#Amount').focus();
+            });
+            
+            // Show/hide destination account based on withdrawal method
+            $('input[name="WithdrawalMethod"]').change(function() {
+                if ($(this).val() === 'Bank Transfer') {
+                    $('#destinationAccountGroup').slideDown();
+                    $('#DestinationAccount').prop('required', true);
+                } else {
+                    $('#destinationAccountGroup').slideUp();
+                    $('#DestinationAccount').prop('required', false);
+                }
+            });
+            
+            // Form submission with loading state
+            $('#withdrawForm').submit(function() {
+                if (validateAmount() && validateDailyLimit()) {
+                    $('#submitBtn').html('<i class="fas fa-spinner fa-spin"></i> Processing...');
+                    $('#submitBtn').prop('disabled', true);
+                    return true;
+                }
+                return false;
+            });
+        });
+        
+        function loadAccountInfo() {
+            var accountId = '@Model.AccountId';
+            
+            // Fetch account details via AJAX
+            $.ajax({
+                url: '/Account/Show/' + accountId, // + '/withdrawal-info',
+                type: 'GET',
+                success: function(data) {
+                    if (data) {
+                        currentBalance = data.balance;
+                        availableBalance = data.availableForWithdrawal;
+                        accountType = data.accountType;
+                        dailyWithdrawn = data.dailyWithdrawn || 0;
+                        
+                        $('#currentBalance').text('Rp ' + formatCurrency(currentBalance));
+                        $('#availableBalance').text('Rp ' + formatCurrency(availableBalance));
+                        $('#accountTypeText').text(data.accountTypeName === 0 ? 'Wadiah Current' : 'Mudarabah Savings');
+                        
+                        // Show penalty notice for Mudarabah accounts
+                        if (accountType === 1) {
+                            $('#penaltyNotice').show();
+                            $('#accountTypeText').addClass('bg-warning text-dark');
+                        } else {
+                            $('#accountTypeText').addClass('bg-secondary');
+                        }
+                        
+                        // Update daily limit info
+                        var remainingDaily = dailyLimit - dailyWithdrawn;
+                        $('#dailyLimit').text('Rp ' + formatCurrency(dailyLimit));
+                        $('#withdrawnToday').text(` (Withdrawn today: Rp ${formatCurrency(dailyWithdrawn)} | Remaining: Rp ${formatCurrency(remainingDaily)})`);
+                        
+                        if (remainingDaily <= 0) {
+                            $('#dailyLimit').addClass('text-danger');
+                            $('#submitBtn').prop('disabled', true);
+                            showError('Daily withdrawal limit reached. Please try again tomorrow.');
+                        }
+                    }
+                },
+                error: function() {
+                    $('#currentBalance').text('Unable to load');
+                    $('#availableBalance').text('Unable to load');
+                    $('#accountTypeText').text('Unknown');
+                }
+            });
+        }
+        
+        function validateAmount() {
+            var amount = parseFloat($('#Amount').val());
+            var errorSpan = $('#Amount').siblings('.text-danger');
+            
+            if (isNaN(amount) || amount <= 0) {
+                errorSpan.text('Please enter a valid amount greater than 0');
+                return false;
+            }
+            
+            if (amount < 10) {
+                errorSpan.text('Minimum withdrawal amount is $10.00');
+                return false;
+            }
+            
+            if (amount > availableBalance) {
+                errorSpan.text(`Insufficient funds. Available balance: Rp ${formatCurrency(availableBalance)}`);
+                return false;
+            }
+            
+            if (amount > (dailyLimit - dailyWithdrawn)) {
+                errorSpan.text(`Daily limit exceeded. Remaining daily limit: Rp ${formatCurrency(dailyLimit - dailyWithdrawn)}`);
+                return false;
+            }
+            
+            if (amount > 50000000) {
+                errorSpan.text('Large withdrawals over Rp 50,000,000 require 24-hour advance notice. Please contact customer service.');
+                return false;
+            }
+            
+            errorSpan.text('');
+            return true;
+        }
+        
+        function validateDailyLimit() {
+            var amount = parseFloat($('#Amount').val());
+            if ((dailyWithdrawn + amount) > dailyLimit) {
+                showError(`This withdrawal would exceed your daily limit of $${formatCurrency(dailyLimit)}.`);
+                return false;
+            }
+            return true;
+        }
+        
+        function checkLargeWithdrawal() {
+            var amount = parseFloat($('#Amount').val());
+            var warningSpan = $('#amountWarning');
+            
+            if (!isNaN(amount) && amount > (availableBalance * 0.9)) {
+                warningSpan.show();
+            } else {
+                warningSpan.hide();
+            }
+        }
+        
+        function formatCurrency(value) {
+            return parseFloat(value).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+        
+        function showError(message) {
+            var errorDiv = $('<div class="alert alert-danger alert-dismissible fade show" role="alert">')
+                .html('<i class="fas fa-exclamation-circle"></i> ' + message + 
+                      '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>');
+            $('#withdrawForm').prepend(errorDiv);
+            setTimeout(function() {
+                errorDiv.alert('close');
+            }, 5000);
+        }
+        
+        // Prevent double submission
+        let isSubmitting = false;
+        $('#withdrawForm').on('submit', function(e) {
+            if (isSubmitting) {
+                e.preventDefault();
+                return false;
+            }
+            isSubmitting = true;
+            return true;
+        });
+    </script>
+    
+    <partial name="_ValidationScriptsPartial" />
+}
+
+<style>
+    /* Custom styles */
+    .card {
+        border-radius: 10px;
+        border: none;
+    }
+    
+    .card-header {
+        border-radius: 10px 10px 0 0 !important;
+    }
+    
+    .input-group-text {
+        background-color: #f8f9fa;
+    }
+    
+    .btn-group .btn-outline-warning:hover {
+        background-color: #ffc107;
+        color: #000;
+    }
+    
+    .btn-outline-danger:hover {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .quick-amount {
+        transition: all 0.3s ease;
+    }
+    
+    .quick-amount:hover {
+        transform: translateY(-2px);
+    }
+    
+    .form-control:focus {
+        border-color: #ffc107;
+        box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25);
+    }
+    
+    .badge {
+        font-size: 0.9em;
+        padding: 5px 10px;
+    }
+    
+    /* Loading animation */
+    @@keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+    
+    .loading {
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+    
+    /* Responsive adjustments */
+    @@media (max-width: 768px) {
+        .btn-group {
+            flex-wrap: wrap;
+        }
+        
+        .btn-group .btn {
+            margin-bottom: 5px;
+            flex: 1 0 auto;
+        }
+        
+        .container {
+            padding: 10px;
+        }
+        
+        .row [class*="col-"] {
+            margin-bottom: 10px;
+        }
+    }
+    
+    /* Alert animations */
+    .alert {
+        animation: slideDown 0.5s ease-out;
+    }
+    
+    @@keyframes slideDown {
+        from {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+</style>

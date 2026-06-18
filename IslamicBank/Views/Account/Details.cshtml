@@ -1,0 +1,29 @@
+﻿@using IslamicBank.Models.ViewModels
+@model AccountBalanceViewModel
+
+<h2>Account Details</h2>
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">Account ID: @Model.AccountId</h5>
+        <p class="card-text">
+            <strong>Balance:</strong> @Model.Balance.ToString("C")<br />
+            <strong>Account Type:</strong> @Model.AccountType<br />
+            <strong>Available for Withdrawal:</strong> @Model.AvailableForWithdrawal.ToString("C")
+        </p>
+        <div class="alert alert-info">
+            <strong>Islamic Banking Note:</strong> 
+            @if (Model.AccountType == IslamicBank.Models.DomainModels.AccountType.MudarabahSavings)
+            {
+                <text>This is a Mudarabah (profit-sharing) account. Profits will be distributed monthly based on bank's actual earnings.</text>
+            }
+            else
+            {
+                <text>This is a Wadiah (safekeeping) account. No profit is paid, but your principal is guaranteed.</text>
+            }
+        </div>
+        <a asp-action="Deposit" asp-route-id="@Model.AccountId" class="btn btn-success">Deposit</a>
+        <a asp-action="Withdraw" asp-route-id="@Model.AccountId" class="btn btn-danger">Withdraw</a>
+        <a asp-controller="Transfer" asp-action="Create" asp-route-fromAccountId="@Model.AccountId" class="btn btn-primary">Transfer</a>
+    </div>
+</div>
